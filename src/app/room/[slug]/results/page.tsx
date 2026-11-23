@@ -84,7 +84,7 @@ export default async function ResultsPage({
 
       {hasEstimates && (
         <p className="text-xs text-neutral-500">
-          * &quot;추정&quot; 표시는 길찾기 조회에 실패해 직선거리로 계산한 값이에요.
+          * &quot;추정&quot; 표시는 한 구간 이상이 호출량 보호 또는 길찾기 조회 불가로 직선거리 기반 계산을 포함한다는 뜻이에요.
         </p>
       )}
 

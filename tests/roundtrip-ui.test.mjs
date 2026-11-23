@@ -99,10 +99,11 @@ test('room lists separate home and modes and results explain roundtrip minimax w
   const deps = { 'next/link': { default: 'a' }, 'next/navigation': { notFound: () => { throw Error('404'); } },
     '@/lib/db/queries': { getRoomBySlug: async () => ({ id: 'r', name: '검증' }), listParticipants: async () => [participant, { ...participant, id: 'b' }] },
     '@/components/ShareLink': { ShareLink: 'share' }, '@/components/KakaoMap': { KakaoMap: 'map' }, '@/components/CandidateCard': { CandidateCard: 'candidate' },
-    '@/lib/protections/results': { protectedResults: async () => ({ status: 'ready', candidates: [] }) } };
+    '@/lib/protections/results': { protectedResults: async () => ({ status: 'ready', candidates: [{ etas: [{ estimated: true, estimateReason: 'quota' }] }] }) } };
   const params = Promise.resolve({ slug: 'test' });
   const room = text(await load('../src/app/room/[slug]/page.tsx', deps).default({ params }));
   assert.match(room, /갈 때.*출발/); assert.match(room, /돌아올 때.*귀가/);
   const results = text(await load('../src/app/room/[slug]/results/page.tsx', deps).default({ params }));
   assert.match(results, /왕복/); assert.match(results, /동점.*합/); assert.match(results, /실제 출발시각.*예측하지/);
+  assert.match(results, /"추정" 표시는.*호출량 보호/);
 });
