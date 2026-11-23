@@ -21,7 +21,7 @@ export default async function JoinPage({
           {room.name ?? "모임 중간지점 찾기"}
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          출발지와 이동수단을 알려주세요. 모두의 위치를 모아 만날 곳을 찾아드려요.
+          출발지·귀가지와 갈 때·돌아올 때 이동수단을 알려주세요. 왕복 부담을 비교해 만날 곳을 찾아드려요.
         </p>
       </header>
 

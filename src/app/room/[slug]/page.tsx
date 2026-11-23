@@ -25,7 +25,7 @@ export default async function RoomPage({
           {room.name ?? "모임 중간지점 찾기"}
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          아래 링크를 공유하고, 참여자들이 각자 출발지를 입력하면 결과를 볼 수 있어요.
+          아래 링크를 공유하고, 각자 출발지·귀가지와 갈 때·돌아올 때 이동수단을 입력해주세요.
         </p>
       </header>
 
@@ -45,13 +45,11 @@ export default async function RoomPage({
             {participants.map((participant) => (
               <li
                 key={participant.id}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                className="space-y-1 px-4 py-3 text-sm"
               >
                 <span className="font-medium">{participant.name}</span>
-                <span className="truncate text-neutral-500">
-                  {participant.transportMode === "car" ? "🚗" : "🚇"}{" "}
-                  {participant.addressLabel}
-                </span>
+                <p className="break-words text-neutral-500">갈 때 · {participant.transportMode === "car" ? "자동차" : "대중교통"} · {participant.addressLabel}</p>
+                <p className="break-words text-neutral-500">돌아올 때 · {(participant.returnTransportMode ?? participant.transportMode) === "car" ? "자동차" : "대중교통"} · {participant.homeAddressLabel ?? participant.addressLabel}</p>
               </li>
             ))}
           </ul>
@@ -63,7 +61,7 @@ export default async function RoomPage({
           href={`/room/${slug}/join`}
           className="block w-full rounded-lg border border-neutral-900 px-4 py-3 text-center font-medium dark:border-neutral-100"
         >
-          나도 출발지 입력하기
+          나도 출발지·귀가지 입력하기
         </Link>
 
         {canSeeResults ? (

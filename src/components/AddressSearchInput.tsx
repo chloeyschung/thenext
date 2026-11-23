@@ -7,9 +7,10 @@ import type { PlaceSuggestion } from "@/types/domain";
 type Props = {
   value: PlaceSuggestion | null;
   onChange: (place: PlaceSuggestion | null) => void;
+  label?: string;
 };
 
-export function AddressSearchInput({ value, onChange }: Props) {
+export function AddressSearchInput({ value, onChange, label = "출발지" }: Props) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<{
     query: string;
@@ -94,7 +95,8 @@ export function AddressSearchInput({ value, onChange }: Props) {
         type="text"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="출발지를 검색하세요 (예: 강남역, 판교 유스페이스)"
+        aria-label={label}
+        placeholder={`${label}를 검색하세요 (예: 강남역, 판교 유스페이스)`}
         className="w-full rounded-lg border border-neutral-300 px-4 py-3 outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:border-neutral-300"
       />
 

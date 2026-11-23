@@ -25,6 +25,8 @@ export async function GET(
     name: participant.name,
     addressLabel: participant.addressLabel,
     transportMode: participant.transportMode,
+    homeAddressLabel: participant.homeAddressLabel ?? participant.addressLabel,
+    returnTransportMode: participant.returnTransportMode ?? participant.transportMode,
   }));
 
   return NextResponse.json({

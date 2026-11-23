@@ -16,14 +16,18 @@ export function JoinForm({ slug }: Props) {
   const [name, setName] = useState("");
   const [place, setPlace] = useState<PlaceSuggestion | null>(null);
   const [mode, setMode] = useState<TransportMode>("transit");
+  const [sameHome, setSameHome] = useState(true);
+  const [homePlace, setHomePlace] = useState<PlaceSuggestion | null>(null);
+  const [returnMode, setReturnMode] = useState<TransportMode | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length > 0 && place !== null && !isSubmitting;
+  const home = sameHome ? place : homePlace;
+  const canSubmit = name.trim().length > 0 && place !== null && home !== null && !isSubmitting;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!place) return;
+    if (!place || !home || !canSubmit) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -38,6 +42,10 @@ export function JoinForm({ slug }: Props) {
           lat: place.lat,
           lng: place.lng,
           transportMode: mode,
+          homeAddressLabel: home.label,
+          homeLat: home.lat,
+          homeLng: home.lng,
+          returnTransportMode: returnMode ?? mode,
         }),
       });
 
@@ -72,10 +80,25 @@ export function JoinForm({ slug }: Props) {
         <AddressSearchInput value={place} onChange={setPlace} />
       </div>
 
-      <div className="space-y-2">
-        <span className="text-sm font-medium">이동수단</span>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">갈 때 이동수단</legend>
         <TransportModeToggle value={mode} onChange={setMode} />
-      </div>
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">귀가지 (모임 후 도착할 곳)</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={sameHome} onChange={(event) => setSameHome(event.target.checked)} />
+          출발지와 같아요
+        </label>
+        {!sameHome && <AddressSearchInput value={homePlace} onChange={setHomePlace} label="귀가지" />}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">돌아올 때 이동수단</legend>
+        <TransportModeToggle value={returnMode ?? mode} onChange={setReturnMode} />
+      </fieldset>
+      <p className="text-xs text-neutral-500">출발지 → 모임 장소 → 귀가지의 이동시간을 비교해요. 실제 출발시각·모임 종료시각·막차를 예측하지 않아요.</p>
 
       <button
         type="submit"

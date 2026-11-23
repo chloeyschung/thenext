@@ -32,6 +32,10 @@ export const participants = pgTable(
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
     transportMode: varchar("transport_mode", { length: 10 }).notNull(),
+    homeAddressLabel: varchar("home_address_label", { length: 200 }),
+    homeLat: doublePrecision("home_lat"),
+    homeLng: doublePrecision("home_lng"),
+    returnTransportMode: varchar("return_transport_mode", { length: 10 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

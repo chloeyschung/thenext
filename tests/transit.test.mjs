@@ -154,14 +154,14 @@ test("midpoint pipeline uses TMAP by default while retaining Kakao driving ETAs"
   const { computeMidpoint } = await import("../src/lib/midpoint/compute.ts");
   const ranked = await computeMidpoint(participants());
   assert.equal(ranked.length, 3);
-  assert.equal(transitCalls, 3);
-  assert.equal(drivingCalls, 3);
+  assert.equal(transitCalls, 6);
+  assert.equal(drivingCalls, 6);
   for (const candidate of ranked) {
     assert.deepEqual(candidate.etas.map(({ minutes, estimated }) => ({ minutes, estimated })), [
-      { minutes: 41, estimated: false }, { minutes: 30, estimated: false },
+      { minutes: 82, estimated: false }, { minutes: 60, estimated: false },
     ]);
-    assert.equal(candidate.maxMinutes, 41);
-    assert.equal(candidate.totalMinutes, 71);
+    assert.equal(candidate.maxMinutes, 82);
+    assert.equal(candidate.totalMinutes, 142);
   }
 });
 
@@ -184,7 +184,7 @@ test("midpoint marks failed TMAP ETAs as estimated and retains finite minimax re
     });
     const ranked = await computeMidpoint(participants().map((p) => ({ ...p, transportMode: "transit" })));
     assert.equal(ranked.length, 3, failure);
-    assert.equal(transitCalls, failure === "missing-key" ? 0 : 6, failure);
+    assert.equal(transitCalls, failure === "missing-key" ? 0 : 12, failure);
     for (const candidate of ranked) {
       assert.equal(Number.isFinite(candidate.maxMinutes), true);
       for (const eta of candidate.etas) {

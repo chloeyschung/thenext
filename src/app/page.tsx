@@ -38,7 +38,7 @@ export default function HomePage() {
       <div className="space-y-3">
         <h1 className="text-3xl font-bold tracking-tight">어디서 만날까?</h1>
         <p className="text-neutral-600 dark:text-neutral-400">
-          모두의 출발지와 이동수단을 모아서, 가장 공평한 만남 장소를 찾아드려요.
+          모두의 출발지·귀가지와 이동수단을 모아서, 왕복 부담이 공평한 만남 장소를 찾아드려요.
         </p>
       </div>
 

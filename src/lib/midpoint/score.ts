@@ -1,7 +1,7 @@
 import type { Candidate, ParticipantEta, RankedCandidate } from "@/types/domain";
 
 /**
- * 공정성 기준: 가장 오래 걸리는 사람의 시간을 최소화(minimax)하고, 동점이면 총합으로 가른다.
+ * 공정성 기준: 개인별 왕복 합계의 최댓값을 최소화(minimax)하고, 동점이면 전원의 왕복 총합으로 가른다.
  *
  * 분산 최소화 대신 minimax 를 쓰는 이유 — 사용자가 체감하는 불공정은 "전원이 비슷하게 애매한 것"이
  * 아니라 "나 혼자 90분 걸리는 것"이다. 혼자 오래 가는 사람이 없게 만드는 쪽이 직관에 맞는다.

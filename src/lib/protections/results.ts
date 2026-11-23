@@ -61,7 +61,8 @@ function busy(): ProtectedResults {
 }
 
 export function calculationFingerprint(participants: Participant[], provider: string): string {
-  const exact = participants.map((p) => [p.id, p.name, p.addressLabel, p.lat, p.lng, p.transportMode])
+  const exact = participants.map((p) => [p.id, p.name, p.addressLabel, p.lat, p.lng, p.transportMode,
+    p.homeAddressLabel ?? p.addressLabel, p.homeLat ?? p.lat, p.homeLng ?? p.lng, p.returnTransportMode ?? p.transportMode])
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  return createHash("sha256").update(JSON.stringify(["midpoint-v2", provider, exact])).digest("hex");
+  return createHash("sha256").update(JSON.stringify(["roundtrip-v3", provider, exact])).digest("hex");
 }

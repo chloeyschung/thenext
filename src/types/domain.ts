@@ -20,6 +20,10 @@ export type Participant = {
   lat: number;
   lng: number;
   transportMode: TransportMode;
+  homeAddressLabel?: string | null;
+  homeLat?: number | null;
+  homeLng?: number | null;
+  returnTransportMode?: TransportMode | null;
 };
 
 /** 방장 화면 등 좌표를 노출하지 않아도 되는 곳에서 쓰는 축약형 */
@@ -28,6 +32,8 @@ export type ParticipantSummary = {
   name: string;
   addressLabel: string;
   transportMode: TransportMode;
+  homeAddressLabel?: string | null;
+  returnTransportMode?: TransportMode | null;
 };
 
 export type Room = {
@@ -43,22 +49,31 @@ export type Candidate = LatLng & {
   source: "station" | "area" | "centroid";
 };
 
+export type LegEta = {
+  transportMode: TransportMode;
+  minutes: number;
+  estimated: boolean;
+  estimateReason?: "quota" | "protection-unavailable" | "route-unavailable";
+};
+
 export type ParticipantEta = {
+  outbound: LegEta;
+  homeward: LegEta;
   participantId: string;
   participantName: string;
   transportMode: TransportMode;
-  /** 분 단위 */
+  /** 갈 때 + 돌아올 때의 개인별 합계 (분) */
   minutes: number;
   /** 실제 길찾기 API가 아니라 거리 기반 추정치로 계산된 경우 true */
   estimated: boolean;
-  estimateReason?: "quota" | "protection-unavailable";
+  estimateReason?: "quota" | "protection-unavailable" | "route-unavailable";
 };
 
 export type RankedCandidate = Candidate & {
   etas: ParticipantEta[];
-  /** 가장 오래 걸리는 사람의 소요시간 (분) — 랭킹 1순위 지표 */
+  /** 가장 오래 걸리는 사람의 왕복 합계 (분) — 랭킹 1순위 지표 */
   maxMinutes: number;
-  /** 전원 소요시간 합 (분) — 동점 시 타이브레이크 */
+  /** 전원 왕복 소요시간 합 (분) — 동점 시 타이브레이크 */
   totalMinutes: number;
 };
 

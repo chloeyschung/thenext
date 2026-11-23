@@ -11,7 +11,22 @@ export const addParticipantSchema = z.object({
   lat: z.number().min(33).max(39),
   lng: z.number().min(124).max(132),
   transportMode: z.enum(["transit", "car"]),
-});
+  homeAddressLabel: z.string().trim().min(1, "귀가지를 선택해주세요.").max(200).optional(),
+  homeLat: z.number().min(33).max(39).optional(),
+  homeLng: z.number().min(124).max(132).optional(),
+  returnTransportMode: z.enum(["transit", "car"]).optional(),
+}).superRefine((input, ctx) => {
+  const fields = [input.homeAddressLabel, input.homeLat, input.homeLng];
+  if (fields.some((v) => v !== undefined) && fields.some((v) => v === undefined)) {
+    ctx.addIssue({ code: "custom", message: "귀가지 주소와 좌표를 모두 선택해주세요." });
+  }
+}).transform((input) => ({
+  ...input,
+  homeAddressLabel: input.homeAddressLabel ?? input.addressLabel,
+  homeLat: input.homeLat ?? input.lat,
+  homeLng: input.homeLng ?? input.lng,
+  returnTransportMode: input.returnTransportMode ?? input.transportMode,
+}));
 
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;
 export type AddParticipantInput = z.infer<typeof addParticipantSchema>;

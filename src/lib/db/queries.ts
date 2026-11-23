@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import type { Participant, TransportMode } from "@/types/domain";
 
 import { db } from "./client";
+import { homewardPlan } from "../homeward";
 import { generateSlug } from "../slug";
 import { participants, rooms, type ParticipantRow, type RoomRow } from "./schema";
 
@@ -51,12 +52,16 @@ export async function addParticipant(input: {
   lat: number;
   lng: number;
   transportMode: TransportMode;
+  homeAddressLabel?: string;
+  homeLat?: number;
+  homeLng?: number;
+  returnTransportMode?: TransportMode;
 }): Promise<Participant> {
   const [row] = await db.insert(participants).values(input).returning();
   return toParticipant(row);
 }
 
-function toParticipant(row: ParticipantRow): Participant {
+export function toParticipant(row: ParticipantRow): Participant {
   return {
     id: row.id,
     name: row.name,
@@ -64,5 +69,6 @@ function toParticipant(row: ParticipantRow): Participant {
     lat: row.lat,
     lng: row.lng,
     transportMode: row.transportMode as TransportMode,
+    ...homewardPlan({ ...row, transportMode: row.transportMode as TransportMode, returnTransportMode: row.returnTransportMode as TransportMode | null }),
   };
 }

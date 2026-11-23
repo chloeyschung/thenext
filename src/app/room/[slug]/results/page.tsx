@@ -61,9 +61,10 @@ export default async function ResultsPage({
           {room.name ? `${room.name} — 추천 장소` : "추천 장소"}
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {participants.length}명의 출발지와 이동수단을 반영해, 가장 오래 걸리는 사람의
-          시간이 짧은 순서로 골랐어요.
+          {participants.length}명의 출발지·귀가지와 각 방향의 이동수단을 반영해, 가장 오래 걸리는 사람의
+          왕복 합계가 짧은 순서로 골랐어요. 동점이면 전원의 왕복 시간 합이 짧은 곳을 먼저 보여줘요.
         </p>
+        <p className="text-xs text-neutral-500">출발지 → 모임 장소 → 귀가지의 경로 비교예요. 실제 출발시각·모임 종료시각·시간표·막차를 예측하지 않아요.</p>
       </header>
 
       {quotaLimited && <p role="status" className="text-sm text-amber-700">대중교통 호출량 보호 한도에 도달해 일부 시간은 직선거리 추정치예요. 실제 API 잔여량과는 다를 수 있어요.</p>}

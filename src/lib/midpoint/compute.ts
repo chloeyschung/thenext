@@ -3,6 +3,8 @@ import "server-only";
 import type {
   Candidate,
   LatLng,
+  LegEta,
+  TransportMode,
   Participant,
   ParticipantEta,
   RankedCandidate,
@@ -13,6 +15,8 @@ import { getDrivingMinutes } from "../kakao/mobility";
 import { getTransitMinutes } from "../transit";
 import { generateCandidates } from "./candidates";
 import { rankCandidates } from "./score";
+import { homewardPlan } from "../homeward";
+import { execution, type Execution } from "../protections/execution";
 
 export const TOP_N = 3;
 
@@ -27,17 +31,20 @@ const FIXED_OVERHEAD_MIN = { transit: 10, car: 5 } as const;
 /**
  * 참여자 전원의 위치로부터 만날 만한 지점 상위 N곳을 계산한다.
  *
- * 1) 중심점 주변에서 후보 지점을 뽑고
- * 2) 참여자 × 후보 마다 실제 소요시간을 구한 뒤
+ * 1) 출발지와 귀가지 중심점 주변에서 후보 지점을 뽑고
+ * 2) 참여자 × 후보마다 방향별 소요시간을 따로 구한 뒤
  * 3) 가장 공평한 순서로 정렬한다.
  */
 export async function computeMidpoint(
   participants: Participant[],
 ): Promise<RankedCandidate[]> {
-  const center = centroid(participants);
+  const center = centroid(participants.flatMap((participant) => {
+    const home = homewardPlan(participant);
+    return [participant, { lat: home.homeLat, lng: home.homeLng }];
+  }));
   const candidates = await generateCandidates(center);
 
-  // 참여자 N × 후보 M 개의 길찾기 호출. 후보 수를 묶어뒀으므로 최대 수십 회 수준이다.
+  // 왕복 최대 2 × 참여자 N × 후보 M. 두 leg를 순차 실행해 동시성 5를 유지한다.
   const tasks = candidates.flatMap((candidate) =>
     participants.map((participant) => async () => ({
       candidate,
@@ -62,33 +69,45 @@ async function estimateEta(
   destination: Candidate,
 ): Promise<ParticipantEta> {
   const origin: LatLng = { lat: participant.lat, lng: participant.lng };
-
-  let minutes: number | null = null;
-  try {
-    minutes =
-      participant.transportMode === "car"
-        ? await getDrivingMinutes(origin, destination)
-        : await getTransitMinutes(origin, destination);
-  } catch {
-    // 원본 예외/URL/키를 기록하지 않고 명시적인 추정치로 대체한다.
-  }
-
-  if (minutes !== null) {
-    return {
-      participantId: participant.id,
-      participantName: participant.name,
-      transportMode: participant.transportMode,
-      minutes,
-      estimated: false,
-    };
-  }
-
+  const home = homewardPlan(participant);
+  const outbound = await estimateLeg(origin, destination, participant.transportMode);
+  const homeward = await estimateLeg(destination, { lat: home.homeLat, lng: home.homeLng }, home.returnTransportMode);
   return {
     participantId: participant.id,
     participantName: participant.name,
     transportMode: participant.transportMode,
-    minutes: fallbackMinutes(origin, destination, participant.transportMode),
+    outbound,
+    homeward,
+    minutes: outbound.minutes + homeward.minutes,
+    estimated: outbound.estimated || homeward.estimated,
+    ...((outbound.estimateReason || homeward.estimateReason)
+      ? { estimateReason: [outbound, homeward].some((leg) => leg.estimateReason === "quota") ? "quota" as const
+        : [outbound, homeward].some((leg) => leg.estimateReason === "protection-unavailable") ? "protection-unavailable" as const
+        : "route-unavailable" as const } : {}),
+  };
+}
+
+async function estimateLeg(origin: LatLng, destination: LatLng, mode: TransportMode): Promise<LegEta> {
+  // Isolate concurrent leg failures; preserve the enclosing room's owner fencing.
+  const state: Execution = {
+    assertOwner: execution.getStore()?.assertOwner ?? (async () => true),
+    quotaDenied: false,
+    quotaUnavailable: false,
+  };
+  let minutes: number | null = null;
+  try {
+    minutes = await execution.run(state, () => mode === "car"
+      ? getDrivingMinutes(origin, destination)
+      : getTransitMinutes(origin, destination));
+  } catch {
+    // 원본 예외/URL/키를 기록하지 않고 명시적인 추정치로 대체한다.
+  }
+  if (minutes !== null) return { transportMode: mode, minutes, estimated: false };
+  return {
+    transportMode: mode,
+    minutes: fallbackMinutes(origin, destination, mode),
     estimated: true,
+    estimateReason: state.quotaDenied ? "quota" : state.quotaUnavailable ? "protection-unavailable" : "route-unavailable",
   };
 }
 
