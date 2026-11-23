@@ -9,7 +9,7 @@
 
 1. 참여자 좌표의 중심점을 구한다
 2. 중심점 주변 지하철역을 후보로 최대 5곳 뽑는다 (역이 없으면 번화가 → 중심점 순으로 폴백)
-3. 참여자 × 후보마다 실제 소요시간을 조회한다 — 자동차는 카카오모빌리티, 대중교통은 ODsay
+3. 참여자 × 후보마다 실제 소요시간을 조회한다 — 자동차는 카카오모빌리티, 대중교통은 기본 TMAP (ODsay 전환 가능)
 4. **가장 오래 걸리는 사람의 시간이 짧은 순서(minimax)** 로 정렬해 상위 3곳을 보여준다
 
 ## 시작하기
@@ -20,7 +20,8 @@
 | --- | --- | --- |
 | `KAKAO_REST_API_KEY` | [카카오 개발자센터](https://developers.kakao.com) > 내 애플리케이션 > 앱 키 | 장소 검색, 자동차 길찾기 (서버 전용) |
 | `NEXT_PUBLIC_KAKAO_JS_KEY` | 같은 곳의 JavaScript 키 | 브라우저 지도 렌더링 |
-| `ODSAY_API_KEY` | [ODsay LAB](https://lab.odsay.com) | 대중교통 길찾기 (카카오는 미지원) |
+| `TMAP_APP_KEY` | TMAP 대중교통 요약정보 API 앱 키 | 기본 대중교통 길찾기 (서버 전용) |
+| `ODSAY_API_KEY` | [ODsay LAB](https://lab.odsay.com) | `TRANSIT_PROVIDER=odsay` 선택 시에만 필요 |
 | `POSTGRES_URL` | [Neon](https://neon.tech) (Vercel Marketplace 연동 또는 직접 가입) | 방/참여자 저장 |
 
 > `@vercel/postgres` 드라이버는 Neon 계열 연결 문자열만 받는다. 일반 로컬 Postgres 를 쓰려면
@@ -32,11 +33,94 @@
 ### 2. 실행
 
 ```bash
-cp .env.local.example .env.local   # 발급받은 키 채우기
+touch .env.local                  # 기존 파일/키를 덮어쓰지 않고 필요한 변수만 편집
 npm install
-npx drizzle-kit push               # 테이블 생성
+node --env-file=.env.local node_modules/drizzle-kit/bin.cjs push
+# .env.local을 명시적으로 로드. 변경 SQL 확인 후 승인하며, 기존 데이터 삭제 제안은 승인하지 않는다.
 npm run dev
 ```
+
+### 대중교통 제공자 선택
+
+`.env.local`의 기존 자격증명은 유지하고 필요한 변수만 추가/변경한다. 서버 재시작 후 적용된다.
+
+```dotenv
+# 생략하거나 비우면 기본값 tmap. 명시해도 동일하다.
+TRANSIT_PROVIDER=tmap
+# 비어 있는 경우에만 실제 앱 키를 로컬에서 입력한다. 기존 값을 지우지 않는다.
+# TMAP_APP_KEY=
+```
+
+ODsay로 돌아가려면 `TRANSIT_PROVIDER=odsay`로 바꾸고 `ODSAY_API_KEY`를 설정한다.
+정확히 `odsay`일 때만 ODsay를 호출하며, 그 외 값은 TMAP을 사용한다.
+`src/lib/odsay/transit.ts`는 원본 그대로 보존한다. 제공자 간 자동 재시도/전환은 하지 않는다.
+
+- 공통 진입점은 서버 전용 `src/lib/transit.ts`; `midpoint/compute.ts`가 이를 사용한다.
+- TMAP은 `POST https://apis.openapi.sk.com/transit/routes/sub`, `appKey` 헤더,
+  문자열 WGS84 경도/위도(`startX/startY/endX/endY`), `format: "json"`, `count: 1`을 보낸다.
+- `metaData.plan.itineraries[0].totalTime`(초)을 반올림한 분으로 변환한다.
+- TMAP 요청은 8초 제한이며 키 누락, HTTP/네트워크/JSON 오류, 경로 없음,
+  유효하지 않은 소요시간(숫자가 아님·무한대·0 이하)은 `null`을 반환한다.
+  기존 추천 로직은 이를 직선거리 기반 시간과 `estimated: true`로 표시한다.
+  키·원본 예외·응답 본문은 기록하지 않는다.
+- `count: 1`은 응답 경로 개수일 뿐, 추천 전체의 호출 횟수 제한이 아니다.
+  캐시가 없는 계산은 대중교통 참여자 수 × 후보 수(최대 5)만큼 조회를 시도하지만,
+  아래 DB 기반 rolling 예산이 실제 TMAP 요청 전에 각 호출을 예약/차단한다.
+
+공식 규격: [요약정보 API](https://transit.tmapmobility.com/docs/routes/sub),
+[인증 헤더/이용절차](https://transit.tmapmobility.com/guide/procedure).
+
+### 검증
+
+설치된 Node.js 26에서 별도 테스트 패키지 없이 내장 테스트 러너와 TS 지원을 사용한다.
+`react-server` 조건은 Node에서 `server-only` 모듈을 실행하기 위한 것이며 앱 빌드 설정은 바꾸지 않는다.
+
+```bash
+npm test                         # 오프라인 테스트; 실제 API/DB 호출 없음
+npx tsc --noEmit
+npm run lint -- --max-warnings=0
+npm run build
+```
+
+테스트 범위: TMAP 요청/초→분 변환, 제공자 선택 및 ODsay 기존 계약,
+오류/잘못된 응답/시간 제한, 추천 파이프라인의 실측/추정 표시·자동차 분기·minimax 정렬.
+
+실제 키를 로드해 강남→홍대 구간을 **1회만** 호출하는 수동 점검:
+
+```bash
+ALLOW_TMAP_PROBE=1 npm run probe:tmap
+```
+
+명시적 허용 없이는 호출하지 않는다. 출력은 요청 수·HTTP 상태·분 단위 시간만 포함한다.
+현재 어댑터로 1회 호출해 `requests: 1`, `status: 200`, `minutes: 41`을 확인했다.
+무료 할당량을 사용하므로 자동 테스트/빌드에는 포함하지 않는다.
+이 제공자 변경 당시에는 DB 테이블과 전체 브라우저 플로우를 검증하지 않았다.
+이후 **2026-11-23** 연결된 Neon DB에 `rooms`/`participants`를 생성하고,
+실제 브라우저에서 방 생성 → 서로 다른 출발지 3명(대중교통 1명·자동차 2명) 입력 →
+실제 소요시간 추천 3곳 → 카카오 지도/참여자 마커 3개·후보 표시 3개까지 검증했다.
+이번 E2E의 TMAP 요청은 5회 모두 HTTP 200, 자동차 요청은 10회 모두 HTTP 200이었고,
+화면의 9개 소요시간에 추정 폴백은 없었다. 검증 중에만 별도 실행 래퍼로 TMAP을 최대 5회 제한했다.
+이후 앱 자체의 DB 기반 캐시/할당량 차단을 추가했다(아래 절). 위 호출량은 보호 추가 전의 E2E 기록이다.
+상세 범위와 증거는 [로컬 E2E 검증 기록](docs/verification-2026-11-23.md)을 참고한다.
+
+## DB 기반 호출량 보호 (2026-11-23)
+
+- 결과 API와 서버 페이지 모두 같은 **10분 결과 캐시 / 방별 180초 lease**를 사용한다.
+  참여자 ID·이름·주소·정확한 좌표·이동수단·제공자 지문이 바뀌면 재사용하지 않는다.
+  동시 계산은 대기 폴링 없이 409/안내를 반환하고 오래된 owner는 캐시 게시/잠금 해제를 못 한다.
+- **TMAP 요약정보만 rolling 24시간 8회**. Neon에서 요청별 원자 예약하며 실패/타임아웃도 소진한다.
+  키 누락·한도 거절은 fetch하지 않고, DB 확인 실패도 차단한다. 추정치/한도 안내는 캐시에서도 유지한다.
+- 이전 호출의 정확한 잔량을 모르므로 최초 운영 예산은 8회 전부 소진으로 설치했다.
+  **2026-11-24 10:46:14.377 KST** 전에는 이 앱의 TMAP 호출을 막는다. 제공자의 자정 reset을 가정하지 않는다.
+- 무료 10건/일은 공식 사이트/약관으로 재확인했고, 10분 캐시는 24시간 이상 데이터 사용 금지보다 짧다.
+  ODsay/카카오 전체 계정의 별도 일일 예산은 없고 결과 캐시/방별 중복 방지만 적용한다.
+  ODsay 원본의 네트워크 타임아웃 한계는 그대로다.
+- 추가 테이블 설치(기존 행/예산 보존):
+  `ALLOW_PROTECTION_SCHEMA=1 node --env-file=.env.local scripts/install-protections.mjs`
+
+설정값·재현 명령·공식 출처·보장 범위 및 Neon 통합 검증은
+[호출량 보호 문서](docs/protections-2026-11-23.md), 실제 출력은
+`docs/protection-verification.txt`를 참고한다. 운영 예산 행을 삭제/초기화하지 않는다.
 
 ## 구조
 
@@ -50,7 +134,9 @@ src/
   lib/
     db/                          drizzle 스키마 + 쿼리
     kakao/                       장소 검색(local), 자동차 길찾기(mobility)
-    odsay/                       대중교통 길찾기
+    tmap/                        기본 대중교통 요약 길찾기
+    odsay/                       보존된 대중교통 길찾기 (선택 가능)
+    transit.ts                   제공자 선택 공통 진입점
     midpoint/                    후보 생성 → 소요시간 조회 → 랭킹
 ```
 

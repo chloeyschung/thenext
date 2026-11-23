@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --conditions=react-server --import ./tests/register.mjs --test tests/*.test.mjs",
+    "probe:tmap": "node --env-file=.env.local --conditions=react-server --import ./tests/register.mjs scripts/probe-tmap.mjs"
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",

@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { CandidateCard } from "@/components/CandidateCard";
 import { KakaoMap } from "@/components/KakaoMap";
 import { getRoomBySlug, listParticipants } from "@/lib/db/queries";
-import { computeMidpoint } from "@/lib/midpoint/compute";
+import { protectedResults } from "@/lib/protections/results";
 
-// 참여자가 계속 들어올 수 있으므로 결과는 열 때마다 새로 계산한다.
+// API와 동일한 참여자 지문 캐시/방별 lease를 사용한다.
 export const dynamic = "force-dynamic";
 
 export default async function ResultsPage({
@@ -37,7 +37,19 @@ export default async function ResultsPage({
     );
   }
 
-  const candidates = await computeMidpoint(participants);
+  const result = await protectedResults(room.id, participants);
+  const { candidates } = result;
+  if (result.status === "busy" || result.status === "unavailable") {
+    return (
+      <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-12 text-center">
+        <h1 className="text-xl font-semibold">결과 안내</h1>
+        <p role="status">{result.message}</p>
+        <Link href={`/room/${slug}`}>모임 화면으로 돌아가기</Link>
+      </main>
+    );
+  }
+  const quotaLimited = candidates.some((candidate) => candidate.etas.some((eta) => eta.estimateReason === "quota"));
+  const protectionUnavailable = candidates.some((candidate) => candidate.etas.some((eta) => eta.estimateReason === "protection-unavailable"));
   const hasEstimates = candidates.some((candidate) =>
     candidate.etas.some((eta) => eta.estimated),
   );
@@ -54,6 +66,9 @@ export default async function ResultsPage({
         </p>
       </header>
 
+      {quotaLimited && <p role="status" className="text-sm text-amber-700">대중교통 호출량 보호 한도에 도달해 일부 시간은 직선거리 추정치예요. 실제 API 잔여량과는 다를 수 있어요.</p>}
+      {protectionUnavailable && <p role="status" className="text-sm text-amber-700">호출량 보호 상태를 확인할 수 없어 대중교통 조회를 차단하고 추정치로 표시했어요.</p>}
+      {result.status === "cached" && <p className="text-xs text-neutral-500">최근 10분 이내에 계산한 결과예요. 추정 표시는 캐시에서도 유지돼요.</p>}
       <KakaoMap participants={participants} candidates={candidates} />
 
       <div className="space-y-4">

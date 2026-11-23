@@ -10,7 +10,7 @@ import type {
 
 import { centroid, haversineKm } from "../geo";
 import { getDrivingMinutes } from "../kakao/mobility";
-import { getTransitMinutes } from "../odsay/transit";
+import { getTransitMinutes } from "../transit";
 import { generateCandidates } from "./candidates";
 import { rankCandidates } from "./score";
 
@@ -69,9 +69,8 @@ async function estimateEta(
       participant.transportMode === "car"
         ? await getDrivingMinutes(origin, destination)
         : await getTransitMinutes(origin, destination);
-  } catch (error) {
-    // 키 누락·한도 초과·일시 장애 어느 쪽이든 결과 화면 자체는 뜨는 편이 낫다.
-    console.error("길찾기 호출 실패, 추정치로 대체합니다:", error);
+  } catch {
+    // 원본 예외/URL/키를 기록하지 않고 명시적인 추정치로 대체한다.
   }
 
   if (minutes !== null) {

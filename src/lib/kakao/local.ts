@@ -1,4 +1,5 @@
 import "server-only";
+import { guardedFetch } from "../protections/execution";
 
 import type { Candidate, LatLng, PlaceSuggestion } from "@/types/domain";
 
@@ -28,7 +29,7 @@ async function kakaoGet(path: string, params: Record<string, string>) {
     url.searchParams.set(key, value);
   }
 
-  const response = await fetch(url, {
+  const response = await guardedFetch(url, {
     headers: { Authorization: `KakaoAK ${restKey()}` },
     // 장소 데이터는 자주 바뀌지 않지만, 방마다 결과가 달라야 하므로 캐시하지 않는다.
     cache: "no-store",

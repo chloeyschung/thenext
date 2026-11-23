@@ -1,4 +1,5 @@
 import "server-only";
+import { guardedFetch } from "../protections/execution";
 
 import type { LatLng } from "@/types/domain";
 
@@ -27,7 +28,7 @@ export async function getDrivingMinutes(
   url.searchParams.set("destination", `${destination.lng},${destination.lat}`);
   url.searchParams.set("priority", "RECOMMEND");
 
-  const response = await fetch(url, {
+  const response = await guardedFetch(url, {
     headers: { Authorization: `KakaoAK ${key}` },
     cache: "no-store",
   });

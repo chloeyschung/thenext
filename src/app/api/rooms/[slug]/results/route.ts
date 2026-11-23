@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getRoomBySlug, listParticipants } from "@/lib/db/queries";
-import { computeMidpoint } from "@/lib/midpoint/compute";
+import { protectedResults } from "@/lib/protections/results";
 
-// 결과는 저장하지 않고 호출 시점의 참여자로 매번 새로 계산한다 (stale 데이터 방지).
+// 현재 참여자 지문을 반영하는 DB 캐시/방별 lease를 페이지와 공유한다.
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -29,6 +29,10 @@ export async function GET(
     );
   }
 
-  const candidates = await computeMidpoint(participants);
-  return NextResponse.json({ candidates, participants });
+  const result = await protectedResults(room.id, participants);
+  const { candidates } = result;
+  return NextResponse.json({ ...result, candidates, participants }, {
+    status: result.status === "busy" ? 409 : result.status === "unavailable" ? 503 : 200,
+    headers: { "Cache-Control": "no-store", ...(result.status === "busy" ? { "Retry-After": "5" } : {}) },
+  });
 }

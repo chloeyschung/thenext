@@ -1,6 +1,8 @@
 import {
   doublePrecision,
   index,
+  jsonb,
+  text,
   pgTable,
   timestamp,
   uuid,
@@ -36,6 +38,21 @@ export const participants = pgTable(
   },
   (table) => [index("participants_room_id_idx").on(table.roomId)],
 );
+
+// Additive operational state; no foreign key to existing rooms or participant writes.
+export const apiQuotaWindows = pgTable("api_quota_windows", {
+  scope: text("scope").primaryKey(),
+  reservations: timestamp("reservations", { withTimezone: true }).array().notNull(),
+});
+
+export const calculationCache = pgTable("calculation_cache", {
+  roomKey: text("room_key").primaryKey(),
+  fingerprint: text("fingerprint"),
+  payload: jsonb("payload"),
+  cacheUntil: timestamp("cache_until", { withTimezone: true }),
+  owner: text("owner"),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+});
 
 export type RoomRow = typeof rooms.$inferSelect;
 export type ParticipantRow = typeof participants.$inferSelect;

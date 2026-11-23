@@ -51,6 +51,7 @@ export type ParticipantEta = {
   minutes: number;
   /** 실제 길찾기 API가 아니라 거리 기반 추정치로 계산된 경우 true */
   estimated: boolean;
+  estimateReason?: "quota" | "protection-unavailable";
 };
 
 export type RankedCandidate = Candidate & {
