@@ -5,6 +5,10 @@ import type { RankedCandidate } from "@/types/domain";
 export const CACHE_SECONDS = 600;
 export const LEASE_SECONDS = 180;
 export const TMAP_CAP = 8;
+/** Server-only opt-in budget; invalid/unapproved values fail back to the free-safe default. */
+export function getTmapCap(value = process.env.TMAP_ROLLING_24H_CAP): number {
+  return value && /^[1-9]\d*$/.test(value) && Number(value) <= 500 ? Number(value) : TMAP_CAP;
+}
 export const TMAP_SCOPE = "tmap:summary";
 
 export interface ProtectionStore {
@@ -22,13 +26,14 @@ export interface ProtectionStore {
  */
 export const protectionStore: ProtectionStore = {
   async reserve(scope = TMAP_SCOPE) {
+    const cap = getTmapCap();
     await sql`INSERT INTO api_quota_windows (scope, reservations)
-      VALUES (${scope}, array_fill(clock_timestamp(), ARRAY[8])) ON CONFLICT DO NOTHING`;
+      VALUES (${scope}, array_fill(clock_timestamp(), ARRAY[${cap}::int])) ON CONFLICT DO NOTHING`;
     const result = await sql`UPDATE api_quota_windows SET reservations =
       ARRAY(SELECT stamp FROM unnest(reservations) stamp WHERE stamp > clock_timestamp() - interval '24 hours') || clock_timestamp()
       WHERE scope = ${scope} AND cardinality(ARRAY(
         SELECT stamp FROM unnest(reservations) stamp WHERE stamp > clock_timestamp() - interval '24 hours'
-      )) < 8 RETURNING scope`;
+      )) < ${cap} RETURNING scope`;
     return result.rowCount === 1;
   },
   async read(room, fingerprint) {

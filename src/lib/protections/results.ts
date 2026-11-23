@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { Participant, RankedCandidate } from "@/types/domain";
 import { computeMidpoint } from "../midpoint/compute";
-import { protectionStore, type ProtectionStore } from "./store";
+import { getTmapCap, protectionStore, type ProtectionStore } from "./store";
 import { execution, type Execution } from "./execution";
 
 export type ProtectedResults = {
@@ -64,5 +64,7 @@ export function calculationFingerprint(participants: Participant[], provider: st
   const exact = participants.map((p) => [p.id, p.name, p.addressLabel, p.lat, p.lng, p.transportMode,
     p.homeAddressLabel ?? p.addressLabel, p.homeLat ?? p.lat, p.homeLng ?? p.lng, p.returnTransportMode ?? p.transportMode])
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  return createHash("sha256").update(JSON.stringify(["roundtrip-v3", provider, exact])).digest("hex");
+  // Keep default/ODsay identities stable; opt-in budgets cannot reuse old quota-denied estimates.
+  const version = provider === "tmap" && getTmapCap() !== 8 ? `roundtrip-v3:tmap-cap-${getTmapCap()}` : "roundtrip-v3";
+  return createHash("sha256").update(JSON.stringify([version, provider, exact])).digest("hex");
 }
